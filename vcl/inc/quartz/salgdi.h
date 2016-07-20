@@ -110,6 +110,7 @@ private:
     CFMutableDictionaryRef  mpStyleDict;
 
     friend class CTLayout;
+    friend class AquaSalGraphics;
     CFMutableDictionaryRef  GetStyleDict( void ) const { return mpStyleDict; }
 };
 
@@ -402,8 +403,9 @@ public:
     virtual bool            GetGlyphOutline( sal_GlyphId, basegfx::B2DPolyPolygon& ) override;
 
     virtual SalLayout*      GetTextLayout( ImplLayoutArgs&, int nFallbackLevel ) override;
-    virtual void            DrawSalLayout( const GenericSalLayout& ) override;
+    virtual void            DrawSalLayout( const GenericSalLayout& ) {};
     virtual void            DrawSalLayout( const GenericSalLayout&, const ServerFont& ) {};
+    virtual void            DrawSalLayout( const GenericSalLayout& , const CoreTextStyle& );
     virtual bool            supportsOperation( OutDevSupportType ) const override;
 
 #ifdef MACOSX
