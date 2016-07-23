@@ -68,7 +68,7 @@ public:
 
     virtual ~TextOutRenderer() = default;
 
-    virtual bool operator ()(WinLayout const &rLayout, HDC hDC,
+    virtual bool operator ()(SalLayout const &rLayout, HDC hDC,
         const Rectangle* pRectToErase,
         Point* pPos, int* pGetNextGlypInfo) = 0;
 };
@@ -82,7 +82,7 @@ public:
     explicit ExTextOutRenderer() = default;
     virtual ~ExTextOutRenderer() override = default;
 
-    bool operator ()(WinLayout const &rLayout, HDC hDC,
+    bool operator ()(SalLayout const &rLayout, HDC hDC,
         const Rectangle* pRectToErase,
         Point* pPos, int* pGetNextGlypInfo) override;
 };
@@ -107,7 +107,7 @@ public:
     explicit D2DWriteTextOutRenderer();
     virtual ~D2DWriteTextOutRenderer() override;
 
-    bool operator ()(WinLayout const &rLayout, HDC hDC,
+    bool operator ()(SalLayout const &rLayout, HDC hDC,
         const Rectangle* pRectToErase,
         Point* pPos, int* pGetNextGlypInfo) override;
 
@@ -139,7 +139,7 @@ private:
     D2DWriteTextOutRenderer & operator = (const D2DWriteTextOutRenderer &) = delete;
 
     bool GetDWriteFaceFromHDC(HDC hDC, IDWriteFontFace ** ppFontFace, float * lfSize) const;
-    bool GetDWriteInkBox(IDWriteFontFace & rFontFace, WinLayout const &rLayout, float const lfEmHeight, Rectangle &) const;
+    bool GetDWriteInkBox(IDWriteFontFace & rFontFace, SalLayout const &rLayout, float const lfEmHeight, Rectangle &) const;
     bool DrawGlyphs(const Point & origin, uint16_t * pGid, uint16_t * pGidEnd,
         float * pAdvances, Point * pOffsets) /*override*/;
 
@@ -3486,7 +3486,7 @@ TextOutRenderer & TextOutRenderer::get()
 }
 
 
-bool ExTextOutRenderer::operator ()(WinLayout const &rLayout, HDC hDC,
+bool ExTextOutRenderer::operator ()(SalLayout const &rLayout, HDC hDC,
     const Rectangle* pRectToErase,
     Point* pPos, int* pGetNextGlypInfo)
 {
@@ -3545,7 +3545,7 @@ D2DWriteTextOutRenderer::~D2DWriteTextOutRenderer()
     CleanupModules();
 }
 
-bool D2DWriteTextOutRenderer::operator ()(WinLayout const &rLayout, HDC hDC,
+bool D2DWriteTextOutRenderer::operator ()(SalLayout const &rLayout, HDC hDC,
     const Rectangle* pRectToErase,
     Point* pPos, int* pGetNextGlypInfo)
 {
@@ -3785,7 +3785,7 @@ bool D2DWriteTextOutRenderer::GetDWriteFaceFromHDC(HDC hDC, IDWriteFontFace ** p
     return succeeded;
 }
 
-bool D2DWriteTextOutRenderer::GetDWriteInkBox(IDWriteFontFace & rFontFace, WinLayout const &rLayout, float const /*lfEmHeight*/, Rectangle & rOut) const
+bool D2DWriteTextOutRenderer::GetDWriteInkBox(IDWriteFontFace & rFontFace, SalLayout const &rLayout, float const /*lfEmHeight*/, Rectangle & rOut) const
 {
     rOut.SetEmpty();
 
@@ -4160,20 +4160,28 @@ void WinSalGraphics::DrawSalLayout( const GenericSalLayout& rLayout )
 {
     HDC hDC = getHDC();
 
-    Point aPos;
-    sal_GlyphId aGlyphId;
-    int nFetchedGlyphs = 0 ;
-
-    UINT oldTa = GetTextAlign( hDC );
-    SetTextAlign( hDC, ( oldTa & ~TA_NOUPDATECP ) );
-
-    while( rLayout.GetNextGlyphs( 1, &aGlyphId, aPos, nFetchedGlyphs ) )
+    if((std::getenv("SAL_DWRITE_COMMON_LAYOUT")))
     {
-        ExtTextOutW( hDC, aPos.X(), aPos.Y(), ETO_GLYPH_INDEX, nullptr, reinterpret_cast<LPCWSTR>( &aGlyphId ),
-                     1, nullptr);
+        Point aPos(0, 0);
+        int nGlyphCount(0);
+        TextOutRenderer &render = TextOutRenderer::get();
+        bool result = render( rLayout, hDC, nullptr, &aPos, &nGlyphCount );
+        assert( !result );
     }
-
-    SetTextAlign(hDC, oldTa);
+    else
+    {
+        Point aPos;
+        sal_GlyphId aGlyphId;
+        int nFetchedGlyphs = 0;
+        UINT oldTa = GetTextAlign( hDC );
+        SetTextAlign( hDC, ( oldTa & ~TA_NOUPDATECP ) );
+        while( rLayout.GetNextGlyphs( 1, &aGlyphId, aPos, nFetchedGlyphs ) )
+        {
+            ExtTextOutW( hDC, aPos.X(), aPos.Y(), ETO_GLYPH_INDEX, nullptr, reinterpret_cast<LPCWSTR>( &aGlyphId ),
+                         1, nullptr);
+        }
+        SetTextAlign(hDC, oldTa);
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */
